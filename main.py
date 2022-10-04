@@ -1,43 +1,69 @@
 import time
 
-from bs4 import BeautifulSoup
-from urllib.request import urlopen
 from selenium import webdriver
 from selenium.common import NoSuchElementException
+from selenium.common import TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from fake_useragent import UserAgent
 import openpyxl
 
 
+# 경제경영 경제 (완료)
+# 경제경영 경영 (완료)
+# 경제경영 투자/재테크 (완료)
+# 경제경영 마케팅/세일즈 (완료)
+# 경제경영 CEO/비즈니스맨 (완료)
+# 경제경영 인터넷비즈니스 (완료)
+
+
 def crawling():
-    driver = webdriver.Chrome()
-    driver.get("http://www.yes24.com/24/Category/Display/001001019016?PageNumber=1")
+    options = webdriver.ChromeOptions()
+    ua = UserAgent()
+    options.add_argument('user-agent=' + ua.random)
+    driver = webdriver.Chrome(options=options)
+    driver.implicitly_wait(5)
+    driver.get("http://www.yes24.com/24/Category/Display/001001025011?PageNumber=1")
 
     wb = openpyxl.Workbook()
+
     sheet = wb.active
 
     time.sleep(1)
 
     page_count = 1
 
-    for page in range(0, 45):
+    for page in range(page_count - 1, 97):
         category_layout = driver.find_element(By.ID, 'category_layout')
         book_list_ul_tag = category_layout.find_element(By.TAG_NAME, 'ul')
         book_list = book_list_ul_tag.find_elements(By.TAG_NAME, 'li')
         for i in range(0, len(book_list)):
             try:
-                time.sleep(1)
+                time.sleep(1.5)
                 category_layout = driver.find_element(By.ID, 'category_layout')
                 book_list_ul_tag = category_layout.find_element(By.TAG_NAME, 'ul')
                 book = book_list_ul_tag.find_elements(By.TAG_NAME, 'li')[i]
-                title_button = book.find_element(By.CLASS_NAME, 'goods_name').find_element(By.TAG_NAME, 'a')
-                title_button.click()
+
+                try:
+                    title_button = book.find_element(By.CLASS_NAME, 'goods_name').find_element(By.TAG_NAME, 'a')
+                    title_button.click()
+
+                except NoSuchElementException:
+                    driver.refresh()
+                    continue
+
+                except TimeoutException:
+                    driver.refresh()
+                    continue
+
                 book_title = driver.find_element(By.CLASS_NAME, 'gd_name').text
                 book_auth = driver.find_element(By.CLASS_NAME, 'gd_auth').text
+                book_pub = driver.find_element(By.CLASS_NAME, 'gd_pub').text
                 # print(book_title)
                 # print(book_auth)
-                row_list = [book_title, book_auth]
+                # print(book_pub)
+                row_list = [book_title, book_auth, book_pub]
                 try:
                     content_text = driver.find_element(By.XPATH, '//*[@id="infoset_inBook"]/div[2]/div[1]/div[1]').text
                     # print(content_text)
@@ -52,14 +78,19 @@ def crawling():
                     wb.save("test.csv")
                     driver.back()
                 except Exception:
+                    print("error page : ", page_count)
                     sheet.append(row_list)
                     wb.save("test.csv")
                     driver.back()
 
             except Exception as e:
+                print("error page : ", page_count)
                 print(e)
-        time.sleep(0.5)
+                driver.back()
+
+        time.sleep(1)
         try:
+            # 하단 페이지 XPATH 경로가 다를 수 있으니, 오류 시 재지정해줘야함.
             page_container_xpath = driver.find_element(By.XPATH,
                                                        '//*[@id="cateSubWrap"]/div[2]/div[6]/div[2]/span[1]/div')
             page_list_a = page_container_xpath.find_elements(By.TAG_NAME, 'a')
